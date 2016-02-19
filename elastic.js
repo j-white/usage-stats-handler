@@ -13,6 +13,7 @@ client.put('/_template/usage-stats', {
 
       "properties": {
         "@timestamp": {type: 'date', "format": "epoch_millis" },
+        "systemId": {type: 'string', index: 'not_analyzed'}
       },
 
       "dynamic_templates": [
@@ -30,23 +31,28 @@ client.put('/_template/usage-stats', {
     }
   }
 }, function(err) {
-  console.log('Template mapping res:', err);
+  if (err) {
+    console.log('Template mapping res:', err);
+  }
 });
 
 function saveReport(report) {
 
   var metrics = {};
-
-  _.each(report.metrics, function(value, key) {
-    metrics[key.replace(/\./g, "_")] = value;
-    });
-
   metrics["@timestamp"] = new Date().getTime();
-  metrics.version = report.version;
+
+  for (var property in report) {
+    if (report.hasOwnProperty(property)) {
+      metrics[property] = report[property];
+    }
+  }
+
 
   client.post('/usage-stats/report', metrics, function(err) {
     if (err) {
-      console.log('Metric write error', err);
+      console.log('Report write error', err);
+    } else {
+      console.log('Succesfully wrote report', metrics);
     }
   });
 }
