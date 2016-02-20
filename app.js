@@ -1,11 +1,7 @@
-var program = require('commander');
-var graphite = require('graphite');
-var pkg = require('./package.json');
-var _ = require('lodash');
 var elastic = require('./elastic');
 
 var restify = require('restify');
-var server = restify.createServer({name: 'opennms-statsusage'});
+var server = restify.createServer({name: 'opennms-stats'});
 
 server
   .use(restify.fullResponse())
@@ -14,7 +10,7 @@ server
 server.post('/opennms-usage-report', function (req, res, next) {
   var report = req.body;
 
-  console.log('report received: ', report);
+  console.log('Report received: ', report);
   elastic.saveReport(report);
 
   res.send({message: 'ok'});

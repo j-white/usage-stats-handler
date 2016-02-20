@@ -4,11 +4,11 @@ var client = restify.createJsonClient({ url: 'http://localhost:9200' });
 
 console.log('Starting Elasticsearch Logger');
 
-client.put('/_template/usage-stats', {
-  "template" : "usage-stats",
+client.put('/log_v1', {
   "settings" : { "number_of_shards" : 1, "number_of_replicas": 0 },
   "mappings" : {
-    "report" : {
+    "usage" : {
+      "_all" : {"enabled": false},
       "_source" : {"enabled" : true },
 
       "properties": {
@@ -23,7 +23,28 @@ client.put('/_template/usage-stats', {
             "mapping": {
               "type": "string",
               "index" : "not_analyzed",
-              "omit_norms" : true,
+              "omit_norms" : true
+            }
+          }
+        }
+      ]
+    },
+    "system" : {
+      "_all" : {"enabled": false},
+      "_source" : {"enabled" : true },
+
+      "properties": {
+        "@timestamp": {type: 'date', "format": "epoch_millis" }
+      },
+
+      "dynamic_templates": [
+        {
+          "strings": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "string",
+              "index" : "not_analyzed",
+              "omit_norms" : true
             }
           }
         }
@@ -32,29 +53,44 @@ client.put('/_template/usage-stats', {
   }
 }, function(err) {
   if (err) {
-    console.log('Template mapping res:', err);
+    console.log('Index creation failed', err);
+  } else {
+    client.post('/_aliases', {
+      "actions": [
+        {"add": {"index": "log_v1", "alias": "log"}}
+      ]
+    }, function(err) {
+      if (err) {
+        console.log('Alias creation failed', err);
+      }
+    });
   }
 });
 
 function saveReport(report) {
 
-  var metrics = {};
-  metrics["@timestamp"] = new Date().getTime();
+  // Include the current timestamp
+  report['@timestamp'] = new Date().getTime();
 
-  for (var property in report) {
-    if (report.hasOwnProperty(property)) {
-      metrics[property] = report[property];
-    }
-  }
-
-
-  client.post('/usage-stats/report', metrics, function(err) {
+  client.post('/log/usage', report, function(err) {
     if (err) {
-      console.log('Report write error', err);
+      console.log('Failed to save report to usage log', err);
     } else {
-      console.log('Succesfully wrote report', metrics);
+      console.log('Successfully saved report to usage log', report);
     }
   });
+
+  if (report.systemId) {
+    var systemId = report.systemId;
+    delete report.systemId;
+    client.put('/log/system/' + systemId, report, function(err) {
+      if (err) {
+        console.log('Failed to save report system log', err);
+      } else {
+        console.log('Successfully save report to system log', report);
+      }
+    });
+  }
 }
 
 module.exports = {
