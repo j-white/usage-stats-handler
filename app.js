@@ -7,7 +7,11 @@ server
   .use(restify.fullResponse())
   .use(restify.bodyParser());
 
-server.post('/opennms-usage-report', function (req, res, next) {
+server.get('/ping', function (req, res, next) {
+  res.send({message: 'ok'});
+});
+
+server.post('/usage-report', function (req, res, next) {
   var report = req.body;
 
   console.log('Report received: ', report);
