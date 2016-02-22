@@ -4,10 +4,10 @@ var client = restify.createJsonClient({ url: 'http://localhost:9200' });
 
 console.log('Starting Elasticsearch Logger');
 
-client.put('/log_v1', {
+client.put('/opennms_log_v1', {
   "settings" : { "number_of_shards" : 1, "number_of_replicas": 0 },
   "mappings" : {
-    "usage" : {
+    "entry" : {
       "_all" : {"enabled": false},
       "_source" : {"enabled" : true },
 
@@ -28,8 +28,28 @@ client.put('/log_v1', {
           }
         }
       ]
-    },
-    "system" : {
+    }
+  }
+}, function(err) {
+  if (err) {
+    console.log('Index creation failed', err);
+  } else {
+    client.post('/_aliases', {
+      "actions": [
+        {"add": {"index": "opennms_log_v1", "alias": "opennms_log"}}
+      ]
+    }, function(err) {
+      if (err) {
+        console.log('Alias creation failed', err);
+      }
+    });
+  }
+});
+
+client.put('/opennms_system_v1', {
+  "settings" : { "number_of_shards" : 1, "number_of_replicas": 0 },
+  "mappings" : {
+    "entry" : {
       "_all" : {"enabled": false},
       "_source" : {"enabled" : true },
 
@@ -57,7 +77,7 @@ client.put('/log_v1', {
   } else {
     client.post('/_aliases', {
       "actions": [
-        {"add": {"index": "log_v1", "alias": "log"}}
+        {"add": {"index": "opennms_system_v1", "alias": "opennms_system"}}
       ]
     }, function(err) {
       if (err) {
@@ -72,7 +92,7 @@ function saveReport(report) {
   // Include the current timestamp
   report['@timestamp'] = new Date().getTime();
 
-  client.post('/log/usage', report, function(err) {
+  client.post('/opennms_log/entry', report, function(err) {
     if (err) {
       console.log('Failed to save report to usage log', err);
     } else {
@@ -83,7 +103,7 @@ function saveReport(report) {
   if (report.systemId) {
     var systemId = report.systemId;
     delete report.systemId;
-    client.put('/log/system/' + systemId, report, function(err) {
+    client.put('/opennms_system/entry/' + systemId, report, function(err) {
       if (err) {
         console.log('Failed to save report system log', err);
       } else {
