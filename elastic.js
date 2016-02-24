@@ -92,6 +92,14 @@ function saveReport(report) {
   // Include the current timestamp
   report['@timestamp'] = new Date().getTime();
 
+  // Reformat the sysOids, replacing the '.' with a '_'
+  // since ES doesn't support . in field names
+  var nodesBySysOid = {};
+  _.each(report['nodesBySysOid'], function(numberOfNodes, sysOid) {
+    nodesBySysOid[sysOid.replace(/\./g, '_')] = numberOfNodes;
+  });
+  report['nodesBySysOid'] = nodesBySysOid;
+
   client.post('/opennms_log/entry', report, function(err) {
     if (err) {
       console.log('Failed to save report to usage log', err);
